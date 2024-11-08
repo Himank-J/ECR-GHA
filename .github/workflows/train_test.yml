@@ -23,7 +23,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-        
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
@@ -81,6 +81,16 @@ jobs:
           
           # Configure instance and run training via SSH
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@$INSTANCE_IP << EOF
+            
+            # Configure AWS credentials
+            mkdir -p ~/.aws
+            cat > ~/.aws/credentials << EOC
+            [default]
+            aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            region=$AWS_REGION
+            EOC
+            
             # Login to ECR
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
             
