@@ -91,6 +91,6 @@ jobs:
           --query 'Instances[0].InstanceId' \
           --output text)
         
-        echo "Waiting for instance $INSTANCE_ID to terminate..."
+        echo "Waiting for instance $INSTANCE_ID to terminate ..."
         aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
     
