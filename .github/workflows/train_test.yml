@@ -8,89 +8,94 @@ env:
   ECR_REPOSITORY: emlo-repository
   AWS_REGION: ap-south-1
   EC2_INSTANCE_TYPE: g4dn.2xlarge
-  EC2_AMI_ID: ami-06bf4022fa9e0886f
+  EC2_AMI_ID: ami-0a646868bb3c2f79f
 
 jobs:
   deploy-and-train:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build and push Docker image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Modify Dockerfile to use build args instead of ENV
-        sed -i 's/ENV AWS_ACCESS_KEY_ID=.*/ARG AWS_ACCESS_KEY_ID/' Dockerfile
-        sed -i 's/ENV AWS_SECRET_ACCESS_KEY=.*/ARG AWS_SECRET_ACCESS_KEY/' Dockerfile
-        sed -i 's/ENV AWS_DEFAULT_REGION=.*/ARG AWS_DEFAULT_REGION/' Dockerfile
-        sed -i 's/ENV S3_BUCKET_NAME=.*/ARG S3_BUCKET_NAME/' Dockerfile
-        sed -i 's/ENV COMMIT_ID=.*/ARG COMMIT_ID/' Dockerfile
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
         
-        # Build with secure credentials
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-          --build-arg AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          --build-arg AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-          --build-arg AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
-          --build-arg S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
-          --build-arg COMMIT_ID=${{ github.sha }} .
-        
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-    - name: Launch EC2 instance and run training
-      run: |
-        # Create user data script
-        cat << EOF > user-data.sh
-        #!/bin/bash
-        yum update -y
-        yum install -y docker
-        service docker start
-        
-        # Configure AWS CLI
-        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws configure set region ${{ env.AWS_REGION }}
-        
-        # Login to ECR
-        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-        
-        # Pull and run container
-        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-        docker run \
-          -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-          -e AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
-          -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
-          -e COMMIT_ID=${{ github.sha }} \
-          ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-        
-        # Shutdown instance
-        shutdown -h now
-        EOF
-        
-        # Launch EC2 instance
-        INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id ${{ env.EC2_AMI_ID }} \
-          --instance-type ${{ env.EC2_INSTANCE_TYPE }} \
-          --iam-instance-profile Name=himank-emlo-user-profile \
-          --user-data file://user-data.sh \
-          --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=ML-Training-${{ github.sha }}}]" \
-          --query 'Instances[0].InstanceId' \
-          --output text)
-        
-        echo "Waiting for instance $INSTANCE_ID to terminate ..."
-        aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
-    
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Modify Dockerfile to use build args instead of ENV
+          sed -i 's/ENV AWS_ACCESS_KEY_ID=.*/ARG AWS_ACCESS_KEY_ID/' Dockerfile
+          sed -i 's/ENV AWS_SECRET_ACCESS_KEY=.*/ARG AWS_SECRET_ACCESS_KEY/' Dockerfile
+          sed -i 's/ENV AWS_DEFAULT_REGION=.*/ARG AWS_DEFAULT_REGION/' Dockerfile
+          sed -i 's/ENV S3_BUCKET_NAME=.*/ARG S3_BUCKET_NAME/' Dockerfile
+          sed -i 's/ENV COMMIT_ID=.*/ARG COMMIT_ID/' Dockerfile
+          
+          # Build with secure credentials
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --build-arg AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
+            --build-arg S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
+            --build-arg COMMIT_ID=${{ github.sha }} .
+          
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      
+      - name: Run training on existing EC2 instance
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          # Start the instance
+          aws ec2 start-instances --instance-ids $INSTANCE_ID
+          echo "Starting EC2 instance..."
+          
+          # Wait for instance to be running
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          
+          # Get instance public IP
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          
+          echo "Instance is running at $INSTANCE_IP"
+          
+          # Wait for instance to be ready for SSH
+          sleep 60
+          
+          # Configure instance and run training via SSH
+          ssh -o StrictHostKeyChecking=no ec2-user@$INSTANCE_IP << 'ENDSSH'
+            # Login to ECR
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+            
+            # Pull latest image
+            docker pull ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+            
+            # Run training container
+            docker run \
+              -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+              -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+              -e AWS_DEFAULT_REGION=${AWS_REGION} \
+              -e S3_BUCKET_NAME=${S3_BUCKET_NAME} \
+              -e COMMIT_ID=${GITHUB_SHA} \
+              ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+          ENDSSH
+          
+          # Stop the instance after training
+          echo "Training complete, stopping instance..."
+          aws ec2 stop-instances --instance-ids $INSTANCE_ID
+          
+          # Wait for instance to stop
+          aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID
+          echo "Instance stopped successfully"
