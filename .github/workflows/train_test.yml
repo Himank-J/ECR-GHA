@@ -8,7 +8,7 @@ env:
   ECR_REPOSITORY: emlo-repository
   AWS_REGION: ap-south-1
   EC2_INSTANCE_TYPE: g4dn.2xlarge
-  EC2_AMI_ID: ami-0a646868bb3c2f79f
+  EC2_AMI_ID: ami-06bf4022fa9e0886f
 
 jobs:
   deploy-and-train:
@@ -71,11 +71,16 @@ jobs:
           
           echo "Instance is running at $INSTANCE_IP"
           
+          # Setup SSH key
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          
           # Wait for instance to be ready for SSH
           sleep 60
           
           # Configure instance and run training via SSH
-          ssh -o StrictHostKeyChecking=no ec2-user@$INSTANCE_IP << 'ENDSSH'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@$INSTANCE_IP << 'ENDSSH'
             # Login to ECR
             aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
             
