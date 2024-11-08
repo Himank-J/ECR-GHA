@@ -75,12 +75,13 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
+          echo "SSH key setup complete"
           
           # Wait for instance to be ready for SSH
           sleep 60
           
           # Configure instance and run training via SSH
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@$INSTANCE_IP << 'ENDSSH'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@$INSTANCE_IP << 'ENDSSH'
             # Login to ECR
             aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
             
