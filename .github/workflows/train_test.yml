@@ -85,7 +85,7 @@ jobs:
         INSTANCE_ID=$(aws ec2 run-instances \
           --image-id ${{ env.EC2_AMI_ID }} \
           --instance-type ${{ env.EC2_INSTANCE_TYPE }} \
-          --iam-instance-profile Name=himank-emlo-user \
+          --iam-instance-profile Name=himank-emlo-user-profile \
           --user-data file://user-data.sh \
           --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=ML-Training-${{ github.sha }}}]" \
           --query 'Instances[0].InstanceId' \
