@@ -8,7 +8,7 @@ env:
   ECR_REPOSITORY: emlo-repository
   AWS_REGION: ap-south-1
   EC2_INSTANCE_TYPE: g4dn.2xlarge
-  EC2_AMI_ID: ami-06bf4022fa9e0886f
+  EC2_AMI_ID: ami-0a646868bb3c2f79f
 
 jobs:
   deploy-and-train:
