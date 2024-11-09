@@ -1,5 +1,5 @@
 # AWS GitHub Actions for Machine Learning Model Training
-
+[![Train ML Model on EC2](https://github.com/Himank-J/ECR-GHA/actions/workflows/train_test.yml/badge.svg)](https://github.com/Himank-J/ECR-GHA/actions/workflows/train_test.yml)
 ![Python](https://img.shields.io/badge/Python-3.8-blue.svg)
 ![AWS](https://img.shields.io/badge/AWS-Services-orange.svg)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI%2FCD-blue.svg)
@@ -9,25 +9,19 @@
 
 1. [Introduction](#introduction)
 2. [Project Overview](#project-overview)
-3. [Badges](#badges)
-4. [AWS Setup](#aws-setup)
+3. [AWS Setup](#aws-setup)
    - [1. Amazon Elastic Container Registry (ECR)](#1-amazon-elastic-container-registry-ecr)
    - [2. Amazon Elastic Compute Cloud (EC2)](#2-amazon-elastic-compute-cloud-ec2)
    - [3. Amazon Simple Storage Service (S3)](#3-amazon-simple-storage-service-s3)
    - [4. IAM Roles and Access](#4-iam-roles-and-access)
-     - [ECR Access Policy](#ecr-access-policy)
-     - [EC2 Policy](#ec2-policy)
-     - [S3 Bucket Policy](#s3-bucket-policy)
      - [Trust Policy](#trust-policy)
      - [Assume Role Policy](#assume-role-policy)
-5. [GitHub Actions Workflow](#github-actions-workflow)
+4. [GitHub Actions Workflow](#github-actions-workflow)
    - [Workflow Overview](#workflow-overview)
-   - [Step-by-Step Explanation](#step-by-step-explanation)
-6. [Code Structure](#code-structure)
-   - [main.py](#mainpy)
-7. [Usage](#usage)
-8. [Conclusion](#conclusion)
-9. [References](#references)
+5. [Output](#output)
+6. [Usage](#usage)
+7. [Conclusion](#conclusion)
+8. [References](#references)
 
 ---
 
@@ -352,6 +346,15 @@ Run Training on EC2 Instance
     aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID
     echo "Instance stopped successfully"
 ```
+## Output
+
+**Docker image when pushed to ECR**
+<img width="1062" alt="image" src="https://github.com/user-attachments/assets/82a5b498-435b-4b7d-866a-6bc9e1555c94">
+
+**Test Metrics & Model stored in S3**
+
+Directory name same as latest commit ID
+<img width="1068" alt="image" src="https://github.com/user-attachments/assets/9760be92-0b9d-4b9c-8151-b9a7a42edc5a">
 
 ## Usage
 
